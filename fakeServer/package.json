@@ -1,0 +1,20 @@
+{
+  "name": "fakeserver",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "luaparse": "0.2.1"
+  },
+  "devDependencies": {
+    "@types/luaparse": "0.0.29",
+    "@types/node": "11.13.4",
+    "typescript": "3.4.3"
+  }
+}
