@@ -1,31 +1,33 @@
 import {Mission} from "./mission";
-import {Script} from "./script";
 
 export class Server {
-	private mission: Mission | null;
+	private mission: Mission;
+	private players: Player[] = [];
 
-	start() {
-		this.mission = new Mission();
-		let script = new Script(this.mission);
-
+	start(mission: Mission) {
+		this.mission = mission;
 		this.mission.start();
-		script.runScript();
 	}
 
-	createPlayer(id: number, name: String): Player {
-		return new Player()
+	acceptPlayer(player: Player) {
+		this.players.push(player);
+	}
+
+	textAll(text: string, timeInSec: number) {
+		this.players.forEach(p => p.addMessage(text, timeInSec))
 	}
 }
 
-class Player {
-	private messages: string[] = [];
+export class Player {
+	public messages: string[] = [];
 
-	addMessage(message: string) {
+	constructor(
+		public id: number,
+		public name: string
+	) {}
+
+	addMessage(message: string, timeInSec: number) {
 		this.messages.push(message)
-	}
-
-	spawn(): Aircraft {
-		return new Aircraft()
 	}
 }
 

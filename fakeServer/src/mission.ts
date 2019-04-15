@@ -1,39 +1,100 @@
-import {LuaRunner} from "./lua";
+import {Script} from "./script";
+import {Player} from "./server";
 
 export class Mission {
 	private startTime: Date;
+	private script: Script | null;
 
 	private nextId = 1000001;
-	private groups: Group[] = [];
-	private staticObjects: StaticObject[] = [];
+	public groups: Group[] = [];
+	public staticObjects: StaticObject[] = [];
+	private slots: Slot[] = [];
+
+	private unitCallback: UnitCallback = {
+		onStaticObjectCreated (_) {},
+		onStaticObjectDeleted(_) {},
+		onUnitCreated (_)  {},
+		onUnitMoved(_) {},
+		onUnitDeleted(_) {},
+	};
+
+	setScript(value: Script) {
+		this.script = value;
+	}
 
 	start() {
 		this.startTime = new Date();
+		if(this.script) {
+			this.script.runScript();
+		}
 	}
 
-	public callback: MissionCallback = {
-		onStaticObjectAdded: _ =>  {},
-		onUnitAdded: _ =>  {}
-	};
+	createSlot(params: CreateSlotParams): Slot {
+		let slot = new Slot(
+			this,
+			params.groupName,
+			params.unitName,
+			params.category,
+			params.coalition,
+			params.country,
+			params.type,
+			params.x,
+			params.y
+		);
 
-	private addStaticObject(staticObject: StaticObject) {
+		this.slots.push(slot);
+
+		return slot;
+	}
+
+	createStaticObject(data: CreateStaticObjectParams): StaticObject {
+		let staticObject = new StaticObject(
+			data.name,
+			data.category,
+			data.coalition,
+			data.country,
+			data.type,
+			data.x,
+			data.y
+		);
+
 		this.staticObjects.push(staticObject);
-		this.callback.onStaticObjectAdded(staticObject);
+		this.unitCallback.onStaticObjectCreated(staticObject);
+
+		return staticObject;
 	}
 
-	private addGroup(group: Group) {
-		this.groups.push(group);
-		group.units.forEach(unit => {
-			this.callback.onUnitAdded(unit)
+	createGroup(data: CreateGroupParams): Group {
+		let newGroup = new Group(
+			this.nextId++,
+			data.name,
+			data.category,
+			data.coalition,
+			data.country
+		);
+		data.units.forEach(unitData => {
+			let newUnit = new Unit(
+				newGroup,
+				this.nextId++,
+				unitData.name,
+				unitData.type,
+				unitData.x,
+				unitData.y,
+				unitData.player
+			);
+			newGroup.addUnit(newUnit)
 		});
+
+		this.groups.push(newGroup);
+		newGroup.units.forEach(unit => {
+			this.unitCallback.onUnitCreated(unit)
+		});
+
+		return newGroup;
 	}
 
-	setCallback(callback: MissionCallback) {
-		this.callback = callback;
-	}
-
-	runLua(code: string) {
-		this.luaRunner.run(code)
+	setUnitCallback(callback: UnitCallback) {
+		this.unitCallback = callback;
 	}
 
 	getStartTime(): Date {
@@ -48,93 +109,49 @@ export class Mission {
 		return this.staticObjects.length + nbOfGroupUnits;
 	}
 
-	private luaRunner = new LuaRunner({
-		coalition: {
-			addGroup: (coalition: number, category: string, any: any) => {
-				console.log("Add group " + coalition + " " + category + " " + any.name);
-				let newGroup = new Group(
-					this.nextId++,
-					any.name,
-					(any.category == "Fortifications") ? "STRUCTURE" : any.category,
-					coalition == 0 ? 1 : coalition,
-					any.country
-				);
-				Object.values(any.units).forEach((unit: any) => {
-					let newUnit = new Unit(
-						newGroup,
-						this.nextId++,
-						unit.name,
-						unit.type,
-						0,
-						unit.heading,
-						unit.x,
-						unit.y
-					);
-					newGroup.addUnit(newUnit);
-				});
+	openSlots() {
+		this.slots.forEach(s => s.unlock());
+	}
 
-				this.addGroup(newGroup)
-			},
-			addStaticObject: (coalition: number, any: any) => {
-				console.log("Add static group " + coalition + " " + any.name)
-				let newObject = new StaticObject(
-					any.name,
-					(any.category == "Fortifications") ? "STRUCTURE" : any.category,
-					coalition == 0 ? 1 : coalition,
-					any.country,
-					any.type,
-					0,
-					any.heading,
-					any.x,
-					any.y
-				);
-				this.addStaticObject(newObject);
-			}
-		},
-		Group: {
-			Category: {
-				GROUND: "GROUND"
-			}
-		},
-		coord: {
-			LLtoLO: (x: number, y: number) => {
-				return {x: x, z: y}
-			}
-		},
-		trigger: {
-			action: {
-				outText: (text: string, timeInSec: number) => {
-					console.log("Text " + text + " num " + timeInSec)
-				},
-				outTextForGroup: (groupId: number, text: string, timeInSec: number) => {
-
-				},
-				markToCoalition: (markId: number, text: string, coordinate: { x: number, z: number }, coalition: number, boolean: boolean) => {
-
-				},
-				removeMark: (markId: number) => {
-
-				},
-			}
-		},
-		missionCommands: {
-			addSubMenuForGroup: (groupId: number, text: string, path: any = {}) => {
-
-			},
-			addCommandForGroup: (groupId: number, text: string, path: any, command: (any) => void, data: any) => {
-
-			},
-			removeItemForGroup: (groupId: number, item: string, _: any) => {
-
-			}
-		}
-	}, this);
-
+	textGroup(groupId: number, text: string, timeInSec: number) {
+		this.groups
+			.filter(g => g.id == groupId)
+			.forEach(g => g.textUnits(text, timeInSec))
+	}
 }
 
-export interface MissionCallback {
-	onStaticObjectAdded(staticObject: StaticObject);
-	onUnitAdded(unit: Unit);
+export interface CreateGroupParams {
+	name: string
+	category: string
+	coalition: number
+	country: string
+	units: CreateUnitParams[]
+}
+
+export interface CreateUnitParams {
+	name: string
+	type: string
+	x: number
+	y: number
+	player: Player
+}
+
+export interface CreateStaticObjectParams {
+	name: string
+	category: string
+	coalition: number
+	country: string
+	type: string
+	x: number
+	y: number
+}
+
+export interface UnitCallback {
+	onStaticObjectCreated(staticObject: StaticObject);
+	onStaticObjectDeleted(staticObject: StaticObject);
+	onUnitCreated(unit: Unit);
+	onUnitMoved(unit: Unit);
+	onUnitDeleted(unit: Unit);
 }
 
 export class StaticObject {
@@ -144,8 +161,6 @@ export class StaticObject {
 		public coalition: number,
 		public country: string,
 		public type: string,
-		public altitude: number,
-		public heading: number,
 		public x: number,
 		public y: number,
 	){}
@@ -165,6 +180,10 @@ export class Group {
 	addUnit(unit: Unit) {
 		this.units.push(unit)
 	}
+
+	textUnits(text: string, timeInSec: number) {
+		this.units.forEach(u => u.textPlayer(text, timeInSec))
+	}
 }
 
 export class Unit {
@@ -173,9 +192,118 @@ export class Unit {
 		public id: number,
 		public name: string,
 		public type: string,
-		public altitude: number,
-		public heading: number,
+		public x: number,
+		public y: number,
+		public player: Player | null
+){}
+
+	textPlayer(text: string, timeInSec: number) {
+		if(this.player) {
+			this.player.addMessage(text, timeInSec)
+		}
+	}
+
+	acceptPlayer(player: Player) {
+		if(this.player) {
+			throw new Error("This unit is already occupied");
+		}
+		this.player = player;
+	}
+}
+
+interface CreateSlotParams {
+	groupName: string
+	unitName: string
+	category: string
+	coalition: number
+	country: string
+	type: string
+	x: number
+	y: number
+}
+
+export class Slot {
+	public player: Player | null;
+	public locked = true;
+	public unit: Unit | null;
+
+	private callbacks: (() => void)[] = [];
+
+	constructor(
+		public mission: Mission,
+		public groupName: string,
+		public unitName: string,
+		public category: string,
+		public coalition: number,
+		public country: string,
+		public type: string,
 		public x: number,
 		public y: number
-	){}
+	) {}
+
+	acceptPlayer(player: Player) {
+		if(this.player) {
+			throw new Error("This slot is already occupied");
+		}
+		if(this.locked) {
+			throw new Error("This slot is locked");
+		}
+		this.player = player;
+		this.triggerCallback();
+	}
+
+	unlock() {
+		this.locked = false;
+		this.triggerCallback()
+	}
+
+	waitForUnlock(): Promise<void> {
+		if(!this.locked) {
+			return Promise.resolve()
+		} else {
+			return this.wait()
+				.then(() => this.waitForUnlock())
+		}
+	}
+
+	spawnUnit(): Unit {
+		if(this.unit) {
+			throw new Error("There is already a unit for this slot");
+		}
+
+		let group = this.mission.createGroup({
+				name: this.groupName,
+				category: this.category,
+				coalition: this.coalition,
+				country: this.country,
+				units: [{
+					name: this.unitName,
+					type: this.type,
+					x: this.x,
+					y: this.y,
+					player: this.player
+				}]
+			});
+		let unit = group.units[0];
+
+		this.unit = unit;
+		this.triggerCallback();
+		return unit;
+	}
+
+
+	wait(): Promise<void> {
+		return new Promise<void>((acc) => {
+			this.callbacks.push(acc)
+		});
+	}
+	private triggerCallback() {
+		//To avoid infinite loops when callbacks are added during processing
+		let callbacks = this.callbacks;
+		this.callbacks = [];
+
+		callbacks.forEach(f =>
+			f()
+		);
+	}
 }

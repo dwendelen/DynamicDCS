@@ -1,15 +1,24 @@
-import {Mission, MissionCallback, StaticObject, Unit} from "./mission";
-import {LuaLikeSocket} from "./lua";
+import {Mission, UnitCallback, StaticObject, Unit, Group, CreateUnitParams} from "./mission";
+import {LuaLikeSocket, LuaRunner} from "./lua";
+import {Server} from "./server";
 
-export class Script implements MissionCallback {
+export class Script implements UnitCallback {
 	private socket: LuaLikeSocket | null = null;
 	private stepLock: boolean = false;
 	private actionsToPush: OutboundAction[] = [];
 
-	constructor(private mission:Mission) {}
+	private luaRunner: LuaRunner;
+
+	constructor(
+		private mission: Mission,
+		private server: Server
+	) {}
 
 	runScript() {
-		this.mission.setCallback(this);
+		this.mission.setUnitCallback(this);
+
+		let luaContext = new LuaContext(this.mission, this.server);
+		this.luaRunner = new LuaRunner(luaContext, luaContext);
 
 		LuaLikeSocket.listen(3001, socket => {
 			this.socket = socket;
@@ -31,7 +40,7 @@ export class Script implements MissionCallback {
 
 		this.socket.nextLine()
 			.then(line => {
-				if(line == null) {
+				if (line == null) {
 					this.socket = null;
 					console.log("Connection closed");
 					return
@@ -63,11 +72,7 @@ export class Script implements MissionCallback {
 			case "GETUNITSALIVE":
 				throw "TODO"//TODO
 			case "SETISOPENSLOT":
-				//{
-				//   "action": "SETISOPENSLOT",
-				//   "val": 1
-				// }
-				console.log("Slots are open");
+				this.mission.openSlots();
 				break;
 			case "SETBASEFLAGS":
 				//{
@@ -120,42 +125,139 @@ export class Script implements MissionCallback {
 
 	private executeCommand(cmd: string) {
 		try {
-			this.mission.runLua(cmd)
+			this.luaRunner.run(cmd)
 		} catch (e) {
 			console.error("Could not execute " + cmd, e)
 		}
 	}
 
-	onStaticObjectAdded(staticObject: StaticObject) {
+	onStaticObjectCreated(staticObject: StaticObject) {
 		this.actionsToPush.push(new CreateAction(new CreateStaticObjectData(
 			staticObject.name,
 			staticObject.name,
 			staticObject.type,
 			staticObject.category,
-			staticObject.coalition,
+			staticObject.coalition == 0 ? 1 : staticObject.coalition,
 			staticObject.country,
-			staticObject.altitude,
-			staticObject.heading,
+			0,
+			0,
 			[staticObject.x, staticObject.y],
 			staticObject.x,
 			staticObject.y
 		)))
 	}
-	onUnitAdded(unit: Unit) {
+
+	onUnitCreated(unit: Unit) {
 		this.actionsToPush.push(new CreateAction(new CreateUnitData(
 			unit.id,
 			unit.group.id,
 			unit.group.name,
 			unit.type,
 			unit.group.category,
-			unit.group.coalition, //TODO proper concept of red, neutral, blue
+			unit.group.coalition == 0 ? 1 : unit.group.coalition, //TODO proper concept of red, neutral, blue
 			unit.group.country,
-			unit.altitude,
-			unit.heading,
+			0,
+			0,
 			false,//TODO
 			[unit.x, unit.y],
-			unit.name
+			unit.name,
+			unit.player ? unit.player.name : ""
 		)));
+	}
+
+	onStaticObjectDeleted(staticObject: StaticObject) {
+		throw new Error("Method not implemented.");
+	}
+
+	onUnitMoved(unit: Unit) {
+		throw new Error("Method not implemented.");
+	}
+
+	onUnitDeleted(unit: Unit) {
+		throw new Error("Method not implemented.");
+	}
+}
+
+class LuaContext {
+	constructor(
+		private mission: Mission,
+		private server: Server
+	) {
+	}
+
+	coalition = {
+		addGroup: (coalition: number, category: string, any: any) => {
+			let units = Object.values(any.units)
+				.map((unit: any) => {
+					return {
+						name: unit.name,
+						type: unit.type,
+						x: unit.x,
+						y: unit.y,
+						player: null
+					}
+				});
+			let group = {
+				name: any.name,
+				category: any.category,
+				coalition: coalition,
+				country: any.country,
+				units: units
+			};
+			this.mission.createGroup(group);
+		},
+		addStaticObject: (coalition: number, any: any) => {
+			this.mission.createStaticObject({
+				name: any.name,
+				category: (any.category == "Fortifications") ? "STRUCTURE" : any.category,
+				coalition: coalition,
+				country: any.country,
+				type: any.type,
+				x: any.x,
+				y: any.y
+			});
+		}
+	};
+
+	Group = {
+		Category: {
+			GROUND: "GROUND"
+		}
+	};
+
+	coord = {
+		LLtoLO: (x: number, y: number) => {
+			return {x: x, z: y}
+		}
+	};
+
+	trigger = {
+		action: {
+			outText: (text: string, timeInSec: number) => {
+				this.server.textAll(text, timeInSec);
+			},
+			outTextForGroup: (groupId: number, text: string, timeInSec: number) => {
+				this.mission.textGroup(groupId, text, timeInSec)
+			},
+			markToCoalition: (markId: number, text: string, coordinate: { x: number, z: number }, coalition: number, boolean: boolean) => {
+
+			},
+			removeMark: (markId: number) => {
+
+			},
+		}
+	};
+
+	missionCommands = {
+		addSubMenuForGroup: (groupId: number, text: string, path: any = {}) => {
+
+		},
+		addCommandForGroup: (groupId: number, text: string, path: any, command: (any) => void, data: any) => {
+
+		},
+		removeItemForGroup: (groupId: number, item: string, _: any) => {
+
+		}
 	}
 }
 
@@ -170,18 +272,19 @@ class OutboundMessage {
 		public que: OutboundAction[],
 		public startAbsTime: number,
 		public unitCount: number
-	) {}
+	) {
+	}
 }
 
 class CreateAction {
 	public action = "C";
 
-	constructor(public data: CreateData) {}
+	constructor(public data: CreateData) {
+	}
 }
 
 class CreateUnitData {
 	public uType = "unit";
-	public playername = ""; //todo
 	public speed = 0; //TODO
 
 	constructor(
@@ -197,7 +300,9 @@ class CreateUnitData {
 		public inAir: boolean,
 		public lonLatLoc: number[],
 		public name: string,
-	) {}
+		public playername: string
+	) {
+	}
 }
 
 class CreateStaticObjectData {
@@ -215,7 +320,8 @@ class CreateStaticObjectData {
 		public lonLatLoc: number[],
 		public lon: number,
 		public lat: number,
-	) {}
+	) {
+	}
 }
 
 type CreateData = CreateUnitData | CreateStaticObjectData;
