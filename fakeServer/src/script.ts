@@ -21,6 +21,9 @@ export class Script implements UnitCallback {
 		this.luaRunner = new LuaRunner(luaContext, luaContext);
 
 		LuaLikeSocket.listen(3001, socket => {
+			if(this.socket) {
+				throw "Already a socket connected, the fake server can not yet handle this"
+			}
 			this.socket = socket;
 		});
 
@@ -48,7 +51,6 @@ export class Script implements UnitCallback {
 				let inbound = JSON.parse(line) as InboundMessage;
 
 				this.handleInbound(inbound);
-
 				let msg = this.createOutbound();
 
 				this.socket.write(JSON.stringify(msg) + "\n");
@@ -178,12 +180,11 @@ export class Script implements UnitCallback {
 	}
 }
 
-class LuaContext {
+export class LuaContext {
 	constructor(
 		private mission: Mission,
 		private server: Server
-	) {
-	}
+	) {}
 
 	coalition = {
 		addGroup: (coalition: number, category: string, any: any) => {
