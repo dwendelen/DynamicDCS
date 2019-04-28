@@ -146,10 +146,21 @@ export class Script implements UnitCallback {
 			[staticObject.x, staticObject.y],
 			staticObject.x,
 			staticObject.y
-		)))
+		)));
+
+		this.actionsToPush.push(new BirthAction(new StaticBirthData()));
 	}
 
 	onUnitCreated(unit: Unit) {
+		if(unit.player) {
+			let now = new Date();
+			let time = ((now.getHours() * 60) + now.getMinutes()) * 60 + now.getSeconds() + now.getMilliseconds() / 1000;
+
+			this.actionsToPush.push(new PlayerEnterUnitAction(new PlayerEnterUnitData(
+				time,
+				unit.id
+			)));
+		}
 		this.actionsToPush.push(new CreateAction(new CreateUnitData(
 			unit.id,
 			unit.group.id,
@@ -164,6 +175,9 @@ export class Script implements UnitCallback {
 			[unit.x, unit.y],
 			unit.name,
 			unit.player ? unit.player.name : ""
+		)));
+		this.actionsToPush.push(new BirthAction(new UnitBirthData(
+			unit.id
 		)));
 	}
 
@@ -262,9 +276,18 @@ export class LuaContext {
 	}
 }
 
+//Inbound messages
+
 interface InboundMessage {
 	action: "CMD" | "NONE" | "GETUNITSALIVE" | "SETISOPENSLOT" | "SETBASEFLAGS" | "SETSIDELOCK" | string
 }
+
+interface CommandAction extends InboundMessage {
+	cmd: string[]
+}
+
+
+//Outbound messages
 
 class OutboundMessage {
 	constructor(
@@ -277,12 +300,17 @@ class OutboundMessage {
 	}
 }
 
+type OutboundAction = CreateAction | PlayerEnterUnitAction | BirthAction;
+
 class CreateAction {
 	public action = "C";
 
 	constructor(public data: CreateData) {
 	}
 }
+
+type CreateData = CreateUnitData | CreateStaticObjectData;
+
 
 class CreateUnitData {
 	public uType = "unit";
@@ -324,10 +352,41 @@ class CreateStaticObjectData {
 	) {
 	}
 }
+//enter - C - birth
+class PlayerEnterUnitAction {
+	public action = "S_EVENT_PLAYER_ENTER_UNIT";
 
-type CreateData = CreateUnitData | CreateStaticObjectData;
-type OutboundAction = CreateAction;
+	constructor(public data: PlayerEnterUnitData) {
+	}
+}
 
-interface CommandAction extends InboundMessage {
-	cmd: string[]
+class PlayerEnterUnitData {
+	public name = "S_EVENT_PLAYER_ENTER_UNIT";
+	public arg1 = 19;
+
+	constructor(
+		public arg2: number, //time
+		public arg3: number //unit id
+	) {}
+}
+
+class BirthAction {
+	public action = "S_EVENT_BIRTH";
+
+	constructor(public data: UnitBirthData | StaticBirthData) {
+	}
+}
+
+class UnitBirthData {
+	public name = "S_EVENT_BIRTH";
+	public arg1 = 15;
+	public arg2 = 0;
+	constructor(
+		public arg3: number //unit id
+	) {}
+}
+class StaticBirthData {
+	public name = "S_EVENT_BIRTH";
+	public arg1 = 15;
+	public arg2 = 0
 }
