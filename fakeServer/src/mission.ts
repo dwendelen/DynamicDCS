@@ -118,6 +118,12 @@ export class Mission {
 			.filter(g => g.id == groupId)
 			.forEach(g => g.textUnits(text, timeInSec))
 	}
+
+	stop() {
+		if(this.script) {
+			this.script.stop();
+		}
+	}
 }
 
 export interface CreateGroupParams {
@@ -255,15 +261,6 @@ export class Slot {
 	unlock() {
 		this.locked = false;
 		this.triggerCallback()
-	}
-
-	waitForUnlock(): Promise<void> {
-		if(!this.locked) {
-			return Promise.resolve()
-		} else {
-			return this.wait()
-				.then(() => this.waitForUnlock())
-		}
 	}
 
 	spawnUnit(): Unit {

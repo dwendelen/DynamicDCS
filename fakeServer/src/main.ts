@@ -1,6 +1,8 @@
 import {Player, Server} from "./server";
 import {Script} from "./script";
 import {Mission} from "./mission";
+import {wait} from "./wait"
+
 
 let server = new Server();
 let mission = new Mission();
@@ -22,8 +24,11 @@ mission.setScript(script);
 server.start(mission);
 
 let player = new Player(1, "Player1");
-slot1.waitForUnlock()
+wait(slot1, s => !s.locked)
 	.then(() => {
 		slot1.acceptPlayer(player);
 		let unit = slot1.spawnUnit();
+	})
+	.then(() => {
+		server.close()
 	});

@@ -1,9 +1,11 @@
 import {Mission, UnitCallback, StaticObject, Unit, Group, CreateUnitParams} from "./mission";
-import {LuaLikeSocket, LuaRunner} from "./lua";
+import {LuaLikeServer, LuaLikeSocket, LuaRunner} from "./lua";
 import {Server} from "./server";
 
 export class Script implements UnitCallback {
+	private luaLikeServer: LuaLikeServer | null = null;
 	private socket: LuaLikeSocket | null = null;
+	private stepLoop: NodeJS.Timeout | null;
 	private stepLock: boolean = false;
 	private actionsToPush: OutboundAction[] = [];
 
@@ -20,14 +22,15 @@ export class Script implements UnitCallback {
 		let luaContext = new LuaContext(this.mission, this.server);
 		this.luaRunner = new LuaRunner(luaContext, luaContext);
 
-		LuaLikeSocket.listen(3001, socket => {
+		this.luaLikeServer = new LuaLikeServer();
+		this.luaLikeServer.listen(3001, socket => {
 			if(this.socket) {
 				throw "Already a socket connected, the fake server can not yet handle this"
 			}
 			this.socket = socket;
 		});
 
-		setInterval(() => this.step(), 200);
+		this.stepLoop = setInterval(() => this.step(), 200)
 	}
 
 	private step() {
@@ -191,6 +194,15 @@ export class Script implements UnitCallback {
 
 	onUnitDeleted(unit: Unit) {
 		throw new Error("Method not implemented.");
+	}
+
+	stop() {
+		this.socket.close();
+		this.socket = null;
+		this.luaLikeServer.close();
+		this.luaLikeServer = null;
+		clearInterval(this.stepLoop);
+		this.stepLoop = null;
 	}
 }
 

@@ -1,5 +1,5 @@
 import * as luaparse from 'luaparse';
-import {Socket} from "net";
+import {Server, Socket} from "net";
 import * as net from "net";
 
 export class LuaRunner {
@@ -103,6 +103,28 @@ export class LuaRunner {
 	}
 }
 
+export class LuaLikeServer {
+	private server: Server | null = null;
+
+	listen(port: number, onNewSocket:(LuaLikeSocket) => void) {
+		if(this.server) {
+			throw new Error("Can not listen to the server twice")
+		}
+
+		this.server = net.createServer(socket => {
+			onNewSocket(new LuaLikeSocket(socket))
+		});
+		this.server.listen(port);
+	}
+
+	close() {
+		if(this.server) {
+			this.server.close();
+			this.server = null;
+		}
+	}
+}
+
 export class LuaLikeSocket {
 	private readBuffer: string = '';
 	private readCallback: (string) => void | null = null;
@@ -124,13 +146,6 @@ export class LuaLikeSocket {
 				this.readCallback = null;
 			}
 		});
-	}
-
-	static listen(port: number, onNewSocket:(LuaLikeSocket) => void) {
-		let server = net.createServer(socket => {
-			onNewSocket(new LuaLikeSocket(socket))
-		});
-		server.listen(port);
 	}
 
 	nextLine(): Promise<string | null> {
@@ -167,5 +182,9 @@ export class LuaLikeSocket {
 
 			this.readBuffer = this.readBuffer.substr(idx + 1);
 		}
+	}
+
+	close() {
+		this.socket.end()
 	}
 }

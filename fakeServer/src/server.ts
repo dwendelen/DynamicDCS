@@ -16,6 +16,10 @@ export class Server {
 	textAll(text: string, timeInSec: number) {
 		this.players.forEach(p => p.addMessage(text, timeInSec))
 	}
+
+	close() {
+		this.mission.stop()
+	}
 }
 
 export class Player {
