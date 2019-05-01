@@ -31,6 +31,8 @@ export class LuaRunner {
 				return this.execBooleanLiteral(ast);
 			case "StringLiteral":
 				return this.execStringLiteral(ast);
+			case "NilLiteral":
+				return this.execNilLiteral(ast);
 			default:
 				throw "Unknown type " + ast.type;
 		}
@@ -101,6 +103,10 @@ export class LuaRunner {
 	private execBooleanLiteral(ast: any) {
 		return ast.value;
 	}
+
+	private execNilLiteral(ast: any) {
+		return null;
+	}
 }
 
 export class LuaLikeServer {
@@ -164,7 +170,7 @@ export class LuaLikeSocket {
 	}
 
 	write(data: string) {
-		console.log(">>  " + data);
+		//console.log(">>  " + data); todo clean up
 		this.socket.write(data)
 	}
 
@@ -176,7 +182,7 @@ export class LuaLikeSocket {
 		let idx = this.readBuffer.indexOf('\n');
 		if(idx !== -1) {
 			let line = this.readBuffer.substr(0, idx);
-			console.log("<<  " + line);
+			//console.log("<<  " + line); todo clean up
 			this.readCallback(line);
 			this.readCallback = null;
 

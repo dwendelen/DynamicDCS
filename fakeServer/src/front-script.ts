@@ -277,14 +277,18 @@ export class LuaContext {
 
 	missionCommands = {
 		addSubMenuForGroup: (groupId: number, text: string, path: any = {}) => {
-
+			console.log("addSubMenuForGroup " + groupId + ", " + text + ", [" + Object.values(path) + "]");
 		},
 		addCommandForGroup: (groupId: number, text: string, path: any, command: (any) => void, data: any) => {
-
+			console.log("addCommandForGroup " + groupId + ", " + text + ", [" + Object.values(path) + "]");
 		},
 		removeItemForGroup: (groupId: number, item: string, _: any) => {
-
+			console.log("removeItemForGroup " + groupId + ", " + item );
 		}
+	};
+
+	sendCmd = function(data: any) {
+		console.log("Should send command with data " + data);
 	}
 }
 
