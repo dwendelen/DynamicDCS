@@ -2,7 +2,7 @@ import {Mission, UnitCallback, StaticObject, Unit, Group, CreateUnitParams} from
 import {LuaLikeServer, LuaLikeSocket, LuaRunner} from "./lua";
 import {Server} from "./server";
 
-export class Script implements UnitCallback {
+export class FrontScript implements UnitCallback {
 	private luaLikeServer: LuaLikeServer | null = null;
 	private socket: LuaLikeSocket | null = null;
 	private stepLoop: NodeJS.Timeout | null;
@@ -18,7 +18,7 @@ export class Script implements UnitCallback {
 
 	runScript() {
 		this.mission.setUnitCallback(this);
-
+		//todo extract lua context
 		let luaContext = new LuaContext(this.mission, this.server);
 		this.luaRunner = new LuaRunner(luaContext, luaContext);
 

@@ -1,9 +1,9 @@
-import {Script} from "./script";
+import {FrontScript} from "./front-script";
 import {Player} from "./server";
 
 export class Mission {
 	private startTime: Date;
-	private script: Script | null;
+	private script: FrontScript | null;
 
 	private nextId = 1000001;
 	public groups: Group[] = [];
@@ -18,7 +18,7 @@ export class Mission {
 		onUnitDeleted(_) {},
 	};
 
-	setScript(value: Script) {
+	setScript(value: FrontScript) {
 		this.script = value;
 	}
 

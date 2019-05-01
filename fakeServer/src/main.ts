@@ -1,11 +1,13 @@
 import {Player, Server} from "./server";
-import {Script} from "./script";
+import {FrontScript} from "./front-script";
 import {Mission} from "./mission";
 import {wait} from "./wait"
+import {BackScript} from "./back-script";
 
 
 let server = new Server();
 let mission = new Mission();
+server.hook = new BackScript(mission, server);
 
 let slot1 = mission.createSlot({
 	groupName: "Slot1",
@@ -18,17 +20,26 @@ let slot1 = mission.createSlot({
 	y: 10
 });
 
-let script = new Script(mission, server);
+let script = new FrontScript(mission, server);
 mission.setScript(script);
 
-server.start(mission);
+let player = new Player(
+	1,
+	"Player1",
+	"11111111111111111111111111111111",
+	"en",
+	"1.1.1.1:1111",
+	1
+);
 
-let player = new Player(1, "Player1");
-wait(slot1, s => !s.locked)
-	.then(() => {
-		slot1.acceptPlayer(player);
-		let unit = slot1.spawnUnit();
-	})
-	.then(() => {
-		server.close()
-	});
+(async () => {
+	server.start(mission);
+	server.acceptPlayer(player);
+
+	await wait(slot1, s => !s.locked);
+
+	slot1.acceptPlayer(player);
+	let unit = slot1.spawnUnit();
+
+	//server.close()
+})();

@@ -1,10 +1,15 @@
 import {Mission} from "./mission";
+import {BackScript} from "./back-script";
 
 export class Server {
 	private mission: Mission;
-	private players: Player[] = [];
+	public hook: BackScript | null = null;
+	public players: Player[] = [];
 
 	start(mission: Mission) {
+		if (this.hook) {
+			this.hook.runScript();
+		}
 		this.mission = mission;
 		this.mission.start();
 	}
@@ -18,16 +23,35 @@ export class Server {
 	}
 
 	close() {
-		this.mission.stop()
+		this.mission.stop();
+		if(this.hook) {
+			this.hook.stop()
+		}
 	}
 }
+
+/*
+"id":1,
+"ipaddr":"80.201.67.38:10308",
+"lang":"en",
+"name":"Xtrit",
+"ping":0,
+"side":0,
+"slot":"",
+"started":false,
+"ucid":"9a31c6c86fbf0f909eafd125f2e3405c"
+ */
 
 export class Player {
 	public messages: string[] = [];
 
 	constructor(
 		public id: number,
-		public name: string
+		public name: string,
+		public ucid: string,
+		public lang: string,
+		public ipAdderess: string,
+		public ping: number
 	) {}
 
 	addMessage(message: string, timeInSec: number) {
