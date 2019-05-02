@@ -197,10 +197,14 @@ export class FrontScript implements UnitCallback {
 	}
 
 	stop() {
-		this.socket.close();
-		this.socket = null;
-		this.luaLikeServer.close();
-		this.luaLikeServer = null;
+		if(this.socket) {
+			this.socket.close();
+			this.socket = null;
+		}
+		if(this.luaLikeServer) {
+			this.luaLikeServer.close();
+			this.luaLikeServer = null;
+		}
 		clearInterval(this.stepLoop);
 		this.stepLoop = null;
 	}
