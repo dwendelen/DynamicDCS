@@ -12,7 +12,7 @@ server.hook = new BackScript(mission, server);
 let slot1 = mission.createSlot({
 	groupName: "Slot1",
 	unitName: "Slot1",
-	coalition: 1,
+	coalition: 2,
 	category: "HELICOPTER",
 	country: "GEORGIA",
 	type: "UH-1H",
@@ -36,10 +36,11 @@ let player = new Player(
 	server.start(mission);
 	server.acceptPlayer(player);
 
-	await wait(slot1, s => !s.locked);
+	await wait(slot1, _ => false, 30000);
 
 	slot1.acceptPlayer(player);
 	let unit = slot1.spawnUnit();
 
 	//server.close()
-})();
+})().catch(e => console.log(e))
+	.then(() => server.close());
