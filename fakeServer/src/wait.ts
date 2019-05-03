@@ -23,3 +23,21 @@ function waitLoop<T extends Waitable>(obj: T, predicate: (T) => Boolean): Promis
 			.then(() => wait(obj, predicate))
 	}
 }
+
+export class WaitPublisher implements Waitable {
+	private subscribers: (() => void)[] = [];
+
+	wait(): Promise<void> {
+		return new Promise<void>((acc) => {
+			this.subscribers.push(acc)
+		});
+	}
+
+	notify() {
+		//To avoid infinite loops when callbacks are added during processing
+		let subscribers = this.subscribers;
+		this.subscribers = [];
+
+		subscribers.forEach(f => f());
+	}
+}

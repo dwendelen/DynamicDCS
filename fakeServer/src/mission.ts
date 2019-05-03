@@ -1,5 +1,6 @@
 import {FrontScript} from "./front-script";
-import {Player} from "./server";
+import {Coalition, Country, Player} from "./server";
+import {WaitPublisher} from "./wait";
 
 export class Mission {
 	private startTime: Date;
@@ -35,7 +36,6 @@ export class Mission {
 			params.groupName,
 			params.unitName,
 			params.category,
-			params.coalition,
 			params.country,
 			params.type,
 			params.x,
@@ -51,7 +51,6 @@ export class Mission {
 		let staticObject = new StaticObject(
 			data.name,
 			data.category,
-			data.coalition,
 			data.country,
 			data.type,
 			data.x,
@@ -69,7 +68,6 @@ export class Mission {
 			this.nextId++,
 			data.name,
 			data.category,
-			data.coalition,
 			data.country
 		);
 		data.units.forEach(unitData => {
@@ -124,13 +122,22 @@ export class Mission {
 			this.script.stop();
 		}
 	}
+
+	private coalitionByCountry: {[index: number]: Coalition} = {};
+
+	getCoalition(country: Country): Coalition {
+		return this.coalitionByCountry[country] || Coalition.NEUTRAL;
+	}
+
+	setCoalition(country: Country, coalition: Coalition) {
+		this.coalitionByCountry[country] = coalition;
+	}
 }
 
 export interface CreateGroupParams {
 	name: string
 	category: string
-	coalition: number
-	country: string
+	country: Country
 	units: CreateUnitParams[]
 }
 
@@ -145,8 +152,7 @@ export interface CreateUnitParams {
 export interface CreateStaticObjectParams {
 	name: string
 	category: string
-	coalition: number
-	country: string
+	country: Country
 	type: string
 	x: number
 	y: number
@@ -164,8 +170,7 @@ export class StaticObject {
 	constructor(
 		public name: string,
 		public category: string,
-		public coalition: number,
-		public country: string,
+		public country: Country,
 		public type: string,
 		public x: number,
 		public y: number,
@@ -179,8 +184,7 @@ export class Group {
 		public id: number,
 		public name: string,
 		public category: string,
-		public coalition: number,
-		public country: string,
+		public country: Country,
 	) {}
 
 	addUnit(unit: Unit) {
@@ -221,8 +225,7 @@ interface CreateSlotParams {
 	groupName: string
 	unitName: string
 	category: string
-	coalition: number
-	country: string
+	country: Country
 	type: string
 	x: number
 	y: number
@@ -233,15 +236,14 @@ export class Slot {
 	public locked = true;
 	public unit: Unit | null;
 
-	private callbacks: (() => void)[] = [];
+	private waitPublisher = new WaitPublisher();
 
 	constructor(
 		public mission: Mission,
 		public groupName: string,
 		public unitName: string,
 		public category: string,
-		public coalition: number,
-		public country: string,
+		public country: Country,
 		public type: string,
 		public x: number,
 		public y: number
@@ -254,13 +256,16 @@ export class Slot {
 		if(this.locked) {
 			throw new Error("This slot is locked");
 		}
+		if(player.slot != this) {
+			throw new Error("Wrong order, use player.occupySlot()")
+		}
 		this.player = player;
-		this.triggerCallback();
+		this.waitPublisher.notify();
 	}
 
 	unlock() {
 		this.locked = false;
-		this.triggerCallback()
+		this.waitPublisher.notify();
 	}
 
 	spawnUnit(): Unit {
@@ -271,7 +276,6 @@ export class Slot {
 		let group = this.mission.createGroup({
 				name: this.groupName,
 				category: this.category,
-				coalition: this.coalition,
 				country: this.country,
 				units: [{
 					name: this.unitName,
@@ -284,23 +288,18 @@ export class Slot {
 		let unit = group.units[0];
 
 		this.unit = unit;
-		this.triggerCallback();
+		this.waitPublisher.notify();
 		return unit;
 	}
 
 
 	wait(): Promise<void> {
-		return new Promise<void>((acc) => {
-			this.callbacks.push(acc)
-		});
+		return this.waitPublisher.wait();
 	}
-	private triggerCallback() {
-		//To avoid infinite loops when callbacks are added during processing
-		let callbacks = this.callbacks;
-		this.callbacks = [];
 
-		callbacks.forEach(f =>
-			f()
-		);
+	getCoalition(): Coalition {
+		return this.mission.getCoalition(this.country);
 	}
 }
+
+

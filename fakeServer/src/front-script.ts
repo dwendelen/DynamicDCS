@@ -1,6 +1,6 @@
 import {Mission, UnitCallback, StaticObject, Unit, Group, CreateUnitParams} from "./mission";
 import {LuaLikeServer, LuaLikeSocket, LuaRunner} from "./lua";
-import {Server} from "./server";
+import {Country, Server} from "./server";
 
 export class FrontScript implements UnitCallback {
 	private luaLikeServer: LuaLikeServer | null = null;
@@ -137,13 +137,14 @@ export class FrontScript implements UnitCallback {
 	}
 
 	onStaticObjectCreated(staticObject: StaticObject) {
+		let country = staticObject.country;
 		this.actionsToPush.push(new CreateAction(new CreateStaticObjectData(
 			staticObject.name,
 			staticObject.name,
 			staticObject.type,
 			staticObject.category,
-			staticObject.coalition == 0 ? 1 : staticObject.coalition,
-			staticObject.country,
+			this.mission.getCoalition(country),
+			Country[country],
 			0,
 			0,
 			[staticObject.x, staticObject.y],
@@ -164,14 +165,15 @@ export class FrontScript implements UnitCallback {
 				unit.id
 			)));
 		}
+		let country = unit.group.country;
 		this.actionsToPush.push(new CreateAction(new CreateUnitData(
 			unit.id,
 			unit.group.id,
 			unit.group.name,
 			unit.type,
 			unit.group.category,
-			unit.group.coalition == 0 ? 1 : unit.group.coalition, //TODO proper concept of red, neutral, blue
-			unit.group.country,
+			this.mission.getCoalition(country),
+			Country[country],
 			0,
 			0,
 			false,//TODO
@@ -217,7 +219,7 @@ export class LuaContext {
 	) {}
 
 	coalition = {
-		addGroup: (coalition: number, category: string, any: any) => {
+		addGroup: (countryId: number, category: string, any: any) => {
 			let units = Object.values(any.units)
 				.map((unit: any) => {
 					return {
@@ -231,18 +233,16 @@ export class LuaContext {
 			let group = {
 				name: any.name,
 				category: any.category,
-				coalition: coalition,
-				country: any.country,
+				country: countryId,
 				units: units
 			};
 			this.mission.createGroup(group);
 		},
-		addStaticObject: (coalition: number, any: any) => {
+		addStaticObject: (countryId: number, any: any) => {
 			this.mission.createStaticObject({
 				name: any.name,
 				category: (any.category == "Fortifications") ? "STRUCTURE" : any.category,
-				coalition: coalition,
-				country: any.country,
+				country: countryId,
 				type: any.type,
 				x: any.x,
 				y: any.y
