@@ -1,5 +1,4 @@
 import {LuaLikeServer, LuaLikeSocket, LuaRunner} from "./lua";
-import {LuaContext} from "./front-script";
 import {Mission} from "./mission";
 import {Server} from "./server";
 
@@ -65,6 +64,14 @@ export class BackScript {
 			});
 	}
 
+	private executeCommand(cmd: string) {
+		try {
+			this.luaRunner.run(cmd)
+		} catch (e) {
+			console.error("Could not execute " + cmd, e)
+		}
+	}
+
 	private createOutbound(): OutboundMessage {
 		let playerData = this.server.players.map(p => {
 			return new PlayersData(
@@ -91,6 +98,10 @@ export class BackScript {
 		switch (inbound.action) {
 			case "NONE":
 				break;
+			case "CMD":
+				let commandAction = inbound as CommandAction;
+				this.executeCommand(commandAction.cmd);
+				break;
 			default:
 				console.log("Unknown action " + inbound.action + ", ignoring it.");
 		}
@@ -110,10 +121,30 @@ export class BackScript {
 	}
 }
 
+class LuaContext {
+	constructor(
+		private mission: Mission,
+		private server: Server
+	) {}
+
+	net = {
+		send_chat: (msg: string, all: boolean) => {
+			this.server.players.forEach(player => {
+				console.log(msg);
+				player.chatbox.addMessage(msg);
+			});
+		}
+	}
+}
+
 //Inbound messages
 
 interface InboundMessage {
-	action:  "NONE" | string
+	action:  "NONE" | "CMD" | string
+}
+
+interface CommandAction extends InboundMessage {
+	cmd: string
 }
 
 //Outbound messages
