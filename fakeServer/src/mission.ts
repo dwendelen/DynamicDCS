@@ -107,10 +107,6 @@ export class Mission {
 		return this.staticObjects.length + nbOfGroupUnits;
 	}
 
-	openSlots() {
-		this.slots.forEach(s => s.unlock());
-	}
-
 	textGroup(groupId: number, text: string, timeInSec: number) {
 		this.groups
 			.filter(g => g.id == groupId)
@@ -179,6 +175,7 @@ export class StaticObject {
 
 export class Group {
 	public units: Unit[] = [];
+	public communicationMenu: CommunicationMenu = new CommunicationMenu();
 
 	constructor(
 		public id: number,
@@ -233,7 +230,6 @@ interface CreateSlotParams {
 
 export class Slot {
 	public player: Player | null;
-	public locked = true;
 	public unit: Unit | null;
 
 	private waitPublisher = new WaitPublisher();
@@ -253,18 +249,10 @@ export class Slot {
 		if(this.player) {
 			throw new Error("This slot is already occupied");
 		}
-		if(this.locked) {
-			throw new Error("This slot is locked");
-		}
 		if(player.slot != this) {
 			throw new Error("Wrong order, use player.occupySlot()")
 		}
 		this.player = player;
-		this.waitPublisher.notify();
-	}
-
-	unlock() {
-		this.locked = false;
 		this.waitPublisher.notify();
 	}
 
@@ -303,3 +291,88 @@ export class Slot {
 }
 
 
+
+
+
+export class CommunicationMenu {
+	private root = new CommunicationSubMenu();
+
+	addCommand(text: string, action: (any) => void, data: any, path: string[]) {
+		let subMenuOrNull = this.root.getSubMenuOrNull(path);
+		if(subMenuOrNull) {
+			subMenuOrNull.commands[text] = new CommunicationCommand(action, data);
+		} else {
+			throw new Error("Unknown path " + path)
+		}
+	}
+
+	addSubMenu(text: string, path: string[]) {
+		let subMenuOrNull = this.root.getSubMenuOrNull(path);
+		if(subMenuOrNull) {
+			subMenuOrNull.subMenus[text] = new CommunicationSubMenu();
+		} else {
+			throw new Error("Unknown path " + path)
+		}
+	}
+
+	hasCommand(path: string[]): boolean {
+		return !!this.root.getCommandOrNull(path);
+	}
+
+	executeCommand(...path: string[]) {
+		let commandOrNull = this.root.getCommandOrNull(path);
+		if(commandOrNull) {
+			commandOrNull.execute();
+		} else {
+			throw new Error("Unknown command " + path);
+		}
+	}
+}
+
+class CommunicationSubMenu {
+	public commands: {[index: string]: CommunicationCommand} = {};
+	public subMenus: {[index: string]: CommunicationSubMenu} = {};
+
+	getSubMenuOrNull(path: string[]): CommunicationSubMenu | null {
+		if(path.length == 0) {
+			return this;
+		}
+
+		let subMenu = this.subMenus[path[0]];
+
+		if(subMenu) {
+			path.splice(0, 1);
+			return subMenu.getSubMenuOrNull(path);
+		} else {
+			return null;
+		}
+	}
+
+	getCommandOrNull(path: string[]): CommunicationCommand | null {
+		if(path.length == 0) {
+			throw new Error("Empty path");
+		} else if(path.length == 1) {
+			return this.commands[path[0]] || null;
+		} else {
+			let subMenu = this.subMenus[path[0]];
+
+			if(subMenu) {
+				path.splice(0, 1);
+				return subMenu.getCommandOrNull(path);
+			} else {
+				return null;
+			}
+		}
+	}
+}
+
+class CommunicationCommand {
+	constructor(
+		private action: (any) => void,
+		private data: any
+	) {}
+
+	execute() {
+		this.action(this.data);
+	}
+}

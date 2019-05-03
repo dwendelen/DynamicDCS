@@ -1,7 +1,7 @@
 import {Coalition, Country, Player, Server} from "./server";
 import {FrontScript} from "./front-script";
 import {Mission} from "./mission";
-import {wait} from "./wait"
+import {wait, waitFor} from "./wait"
 import {BackScript} from "./back-script";
 
 
@@ -38,13 +38,23 @@ let player = new Player(
 	server.start(mission);
 	server.acceptPlayer(player);
 
-	await wait(slot1, s => !s.locked);
+	let chatbox = player.chatbox;
+	await wait(chatbox, cb => cb.hasMessage("Server units are Synced, Slots Now Open!"));
 
 	player.occupy(slot1);
+	let unit = slot1.spawnUnit();
+
+
+	await waitFor(5000);
+
+	player.slot.unit.group.communicationMenu.executeCommand(
+		"$Resource Points$",
+		"Resource Points Acquired"
+	);
 
 	console.log(`Player is on side ${player.getCoalition()}`);
 
-	let unit = slot1.spawnUnit();
+
 
 	//server.close()
 })().catch(e => console.log(e))

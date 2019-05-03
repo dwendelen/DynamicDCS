@@ -75,9 +75,9 @@ export class FrontScript implements UnitCallback {
 				commandAction.cmd.forEach(cmd => this.executeCommand(cmd));
 				break;
 			case "GETUNITSALIVE":
-				throw "TODO"//TODO
+				throw "TODO"; //TODO
 			case "SETISOPENSLOT":
-				this.mission.openSlots();
+				console.log("slots are opened"); //todo
 				break;
 			case "SETBASEFLAGS":
 				//{
@@ -212,7 +212,7 @@ export class FrontScript implements UnitCallback {
 	}
 }
 
-export class LuaContext {
+class LuaContext {
 	constructor(
 		private mission: Mission,
 		private server: Server
@@ -281,10 +281,14 @@ export class LuaContext {
 
 	missionCommands = {
 		addSubMenuForGroup: (groupId: number, text: string, path: any = {}) => {
-			console.log("addSubMenuForGroup " + groupId + ", " + text + ", [" + Object.values(path) + "]");
+			this.mission.groups
+				.filter(g => g.id == groupId)
+				.forEach(group => group.communicationMenu.addSubMenu(text, Object.values(path || {})))
 		},
 		addCommandForGroup: (groupId: number, text: string, path: any, command: (any) => void, data: any) => {
-			console.log("addCommandForGroup " + groupId + ", " + text + ", [" + Object.values(path) + "]");
+			this.mission.groups
+				.filter(g => g.id == groupId)
+				.forEach(group => group.communicationMenu.addCommand(text, command, data, Object.values(path || {})))
 		},
 		removeItemForGroup: (groupId: number, item: string, _: any) => {
 			console.log("removeItemForGroup " + groupId + ", " + item );

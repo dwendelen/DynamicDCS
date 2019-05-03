@@ -199,6 +199,14 @@ class Chatbox implements Waitable{
 		this.waitPublisher.notify();
 	}
 
+	public hasMessage(msg: string) {
+		return this.messages.indexOf(msg) >= 0;
+	}
+
+	public clear() {
+		this.messages = [];
+	}
+
 	wait(): Promise<void> {
 		return this.waitPublisher.wait();
 	}

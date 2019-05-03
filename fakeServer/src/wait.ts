@@ -2,7 +2,7 @@ export interface Waitable {
 	wait(): Promise<void>
 }
 
-export function wait<T extends Waitable>(obj: T, predicate: (T) => Boolean, timeoutInMs = 0, timoutError = new Error("Timeout")): Promise<void> {
+export function wait<T extends Waitable>(obj: T, predicate: (T) => boolean, timeoutInMs = 0, timoutError = new Error("Timeout")): Promise<void> {
 	let loop = waitLoop(obj, predicate);
 
 	if(timeoutInMs) {
@@ -15,7 +15,13 @@ export function wait<T extends Waitable>(obj: T, predicate: (T) => Boolean, time
 	}
 }
 
-function waitLoop<T extends Waitable>(obj: T, predicate: (T) => Boolean): Promise<void> {
+export function waitFor(timeInMs: number): Promise<void> {
+	return new Promise<void>((resolve, _) => {
+		setTimeout(resolve, timeInMs);
+	});
+}
+
+function waitLoop<T extends Waitable>(obj: T, predicate: (T) => boolean): Promise<void> {
 	if(predicate(obj)) {
 		return Promise.resolve()
 	} else {
