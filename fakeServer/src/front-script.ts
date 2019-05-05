@@ -7,7 +7,7 @@ export class FrontScript implements UnitCallback {
 	private socket: LuaLikeSocket | null = null;
 	private stepLoop: NodeJS.Timeout | null;
 	private stepLock: boolean = false;
-	private actionsToPush: OutboundAction[] = [];
+	private actionsToPush: any[] = [];
 
 	private luaRunner: LuaRunner;
 
@@ -19,7 +19,7 @@ export class FrontScript implements UnitCallback {
 	runScript() {
 		this.mission.setUnitCallback(this);
 		//todo extract lua context
-		let luaContext = new LuaContext(this.mission, this.server);
+		let luaContext = new LuaContext(this.mission, this.server, this);
 		this.luaRunner = new LuaRunner(luaContext, luaContext);
 
 		this.luaLikeServer = new LuaLikeServer();
@@ -210,12 +210,17 @@ export class FrontScript implements UnitCallback {
 		clearInterval(this.stepLoop);
 		this.stepLoop = null;
 	}
+
+	sendCommand(cmd: any) {
+		this.actionsToPush.push(cmd);
+	}
 }
 
 class LuaContext {
 	constructor(
 		private mission: Mission,
-		private server: Server
+		private server: Server,
+		private script: FrontScript
 	) {}
 
 	coalition = {
@@ -295,8 +300,8 @@ class LuaContext {
 		}
 	};
 
-	sendCmd = function(data: any) {
-		console.log("Should send command with data " + data);
+	sendCmd = (data: any) => {
+		this.script.sendCommand(data);
 	}
 }
 
